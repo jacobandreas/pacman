@@ -1,0 +1,221 @@
+<html>
+  <head>
+    <script src="http://code.jquery.com/jquery-2.1.4.min.js"
+            type="text/javascript"></script>
+    <style type="text/css">
+body {
+  width: 40em;
+  margin: 0 auto;
+  font-family: sans-serif;
+  font-size: 15px;
+  text-align: center;
+}
+
+div.pick {
+  margin: 1em 0;
+}
+
+div.play {
+  margin: 2em 0;
+}
+
+a.pick {
+  text-decoration: none;
+  padding: 0.2em 0.5em;
+  margin: 0 0.5em;
+}
+
+a.picked {
+  color: #fff;
+  background: #000;
+}
+
+a.play {
+  background: #483;
+  color: #dfd;
+  text-decoration: none;
+  padding: .5em;
+}
+
+#ghostChat {
+  width: 100%;
+  font-size: 1.5em;
+}
+
+#allChat {
+  font-size: 1.5em;
+}
+
+#board {
+  width: 100%;
+}
+
+#result {
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 3em;
+}
+
+    </style>
+  </head>
+  <body>
+    <div class="pick">
+      <a href="#" class='pick' id="pickGhosts">ghosts</a>
+      <a href="#" class='pick' id="pickPacman">pacman</a>
+      <a href="#" class='pick picked' id="pickMonitor">monitor</a>
+    </div>
+    <input type="text" id="ghostChat" />
+    <p id="allChat">&nbsp;</p>
+    <p id="result"></p>
+    <div class="play">
+      <a href="#" class='play' id="play">play</a>
+    </div>
+    <canvas id="board"></canvas>
+
+    <script type="text/javascript">
+var CELL = 30;
+var ws = new WebSocket("ws://dhcp-223-103.banatao.berkeley.edu:9000");
+var mode = 'monitor';
+ws.onmessage = function(evt) {
+  var parts = evt.data.split(":");
+  if (parts[0] == "GAME") {
+    render(parts[1]);
+  } else if (parts[0] == "END") {
+    terminate(parts[1]);
+  } else if (parts[0] == "CHAT") {
+    chat(parts[1]);
+  }
+}
+
+function chat(data) {
+  $('#allChat').text(data);
+  $('#ghostChat').val("");
+}
+
+function terminate(data) {
+  $('#board').hide();
+  $('#result').text(data);
+  $('#play').show();
+}
+
+function drawCircle(ctx, x, y, r) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2, true);
+  ctx.fill();
+}
+
+function render(data) {
+  $('#board').show();
+  $('#result').text("");
+  $('#play').hide();
+  var rows = data.split("\n");
+  var nRows = rows.length;
+  var nCols = rows[0].split("").length;
+  //$('#board').height(CELL * nRows);
+  //$('#board').width(CELL * nCols);
+  var canvas = document.getElementById("board");
+  var ctx = board.getContext("2d");
+  ctx.canvas.height = CELL * nRows;
+  ctx.canvas.width = CELL * nCols;
+  var r;
+  for (r = 0; r < nRows; ++r) {
+    if (rows[r] == "") break;
+    var cells = rows[r].split("");
+    for (var c = 0; c < nCols; ++c) {
+      ctx.fillStyle = 'black';
+      ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+      if (cells[c] == '#') {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+      } else if (cells[c] == ' ') {
+      } else if (cells[c] == '.' && mode != 'ghosts') {
+        ctx.fillStyle = 'white';
+        //ctx.fillRect((c + 0.4) * CELL, (r + 0.4) * CELL, 0.2 * CELL, 0.2 * CELL);
+        drawCircle(ctx, (c + 0.5) * CELL, (r + 0.5) * CELL, 0.1 * CELL);
+      } else if (cells[c] == 'o' && mode != 'ghosts') {
+        ctx.fillStyle = 'white';
+        //ctx.fillRect((c + 0.3) * CELL, (r + 0.3) * CELL, 0.4 * CELL, 0.4 * CELL);
+        drawCircle(ctx, (c + 0.5) * CELL, (r + 0.5) * CELL, 0.2 * CELL);
+      } 
+      // else if (cells[c] == 'G' && mode != 'pacman') {
+      //   ctx.fillStyle = 'red';
+      //   ctx.fillRect((c + 0.2) * CELL, (r + 0.2) * CELL, 0.6 * CELL, 0.6 * CELL);
+      // } else if ("<>^v".includes(cells[c]) && mode != 'ghosts') {
+      //   ctx.fillStyle = 'yellow';
+      //   ctx.fillRect((c + 0.2) * CELL, (r + 0.2) * CELL, 0.6 * CELL, 0.6 * CELL);
+      // }
+    }
+  }
+  r++;
+  var colors = {'G1': 'red', 
+                'G2': 'green', 
+                'G3': 'aqua',
+                'G4': 'fuchsia',
+                'G5': 'lime',
+                'P': 'yellow', 
+                'S': 'blue'};
+  for (; r < nRows; ++r) {
+    var parts = rows[r].split(" ");
+    var agent = parts[0];
+    var col = parseInt(parts[1]);
+    var row = parseInt(parts[2]);
+    ctx.fillStyle = colors[agent];
+    if (agent == 'P') {
+      drawCircle(ctx, (col + 0.5) * CELL, (row + 0.5) * CELL, 0.3 * CELL);
+    } else {
+      drawCircle(ctx, (col + 0.5) * CELL, (row + 0.5) * CELL, 0.3 * CELL);
+      ctx.fillRect((col + 0.2) * CELL, (row + 0.5) * CELL, 0.6 * CELL, 0.3 * CELL);
+    }
+
+    // var agent = parts[0];
+    // var c = parts[1];
+    // var r = parts[2];
+    // // ctx.fillStyle = colors[agent];
+    // console.log(parts);
+    // console.log(agent);
+    // console.log(colors[agent]);
+  }
+  // $("#board").text(data);
+};
+
+$('body').keydown(function(e) {
+  if (mode != 'ghosts') {
+    var msg = "MOVE:" + e.which;
+    ws.send(msg);
+  }
+});
+
+$('#pickGhosts').click(function(e) { 
+  mode = "ghosts";
+  $('.pick').removeClass('picked');
+  $('#pickGhosts').addClass('picked');
+  $('#ghostChat').show();
+});
+
+$('#pickPacman').click(function(e) {
+  mode = "pacman";
+  $('.pick').removeClass('picked');
+  $('#pickPacman').addClass('picked');
+  $('#ghostChat').hide();
+});
+
+$('#pickMonitor').click(function(e) {
+  mode = "monitor";
+  $('.pick').removeClass('picked');
+  $('#pickMonitor').addClass('picked');
+  $('#ghostChat').show();
+});
+
+$('#play').click(function(e) {
+  ws.send("PLAY:")
+})
+
+$('#ghostChat').keydown(function(e) {
+  if (e.which == 13) {
+    var msg = "CHAT:" + $(this).val();
+    ws.send(msg);
+  }
+});
+    </script>
+  </body>
+</html>
