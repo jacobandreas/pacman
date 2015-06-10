@@ -54,28 +54,30 @@ a.play {
   text-transform: uppercase;
   font-weight: bold;
   font-size: 3em;
+  margin: 1em;
+}
+
+#board {
+  outline: 1px solid #888;
 }
 
     </style>
   </head>
   <body>
-    <div class="pick">
-      <a href="#" class='pick' id="pickGhosts">ghosts</a>
-      <a href="#" class='pick' id="pickPacman">pacman</a>
-      <a href="#" class='pick picked' id="pickMonitor">monitor</a>
-    </div>
-    <input type="text" id="ghostChat" />
-    <p id="allChat">&nbsp;</p>
     <p id="result"></p>
     <div class="play">
       <a href="#" class='play' id="play">play</a>
     </div>
     <canvas id="board"></canvas>
+    <p id="allChat">&nbsp;</p>
+    <input type="text" id="ghostChat" />
 
     <script type="text/javascript">
+$('#board').hide();
+$('#ghostChat').hide();
 var CELL = 30;
-var ws = new WebSocket("ws://dhcp-223-103.banatao.berkeley.edu:9000");
-var mode = 'monitor';
+var ws = new WebSocket("ws://pacman.jacobandreas.net:9000");
+var mode = 'ghosts';
 ws.onmessage = function(evt) {
   var parts = evt.data.split(":");
   if (parts[0] == "GAME") {
@@ -95,7 +97,9 @@ function chat(data) {
 function terminate(data) {
   $('#board').hide();
   $('#result').text(data);
-  $('#play').show();
+  $('#ghostChat').hide();
+  $('#allChat').hide();
+  // $('#play').show();
 }
 
 function drawCircle(ctx, x, y, r) {
@@ -115,7 +119,7 @@ function render(data) {
   //$('#board').width(CELL * nCols);
   var canvas = document.getElementById("board");
   var ctx = board.getContext("2d");
-  ctx.canvas.height = CELL * nRows;
+  ctx.canvas.height = CELL * (nRows - 4);
   ctx.canvas.width = CELL * nCols;
   var r;
   for (r = 0; r < nRows; ++r) {
@@ -146,7 +150,7 @@ function render(data) {
       // }
     }
   }
-  r++;
+  ++r
   var colors = {'G1': 'red', 
                 'G2': 'green', 
                 'G3': 'aqua',
@@ -160,9 +164,9 @@ function render(data) {
     var col = parseInt(parts[1]);
     var row = parseInt(parts[2]);
     ctx.fillStyle = colors[agent];
-    if (agent == 'P') {
+    if (agent == 'P' && mode != 'ghosts') {
       drawCircle(ctx, (col + 0.5) * CELL, (row + 0.5) * CELL, 0.3 * CELL);
-    } else {
+    } else if (agent != 'P' && mode != 'pacman') {
       drawCircle(ctx, (col + 0.5) * CELL, (row + 0.5) * CELL, 0.3 * CELL);
       ctx.fillRect((col + 0.2) * CELL, (row + 0.5) * CELL, 0.6 * CELL, 0.3 * CELL);
     }
@@ -178,36 +182,39 @@ function render(data) {
   // $("#board").text(data);
 };
 
-$('body').keydown(function(e) {
-  if (mode != 'ghosts') {
-    var msg = "MOVE:" + e.which;
-    ws.send(msg);
-  }
-});
-
-$('#pickGhosts').click(function(e) { 
-  mode = "ghosts";
-  $('.pick').removeClass('picked');
-  $('#pickGhosts').addClass('picked');
-  $('#ghostChat').show();
-});
-
-$('#pickPacman').click(function(e) {
-  mode = "pacman";
-  $('.pick').removeClass('picked');
-  $('#pickPacman').addClass('picked');
-  $('#ghostChat').hide();
-});
-
-$('#pickMonitor').click(function(e) {
-  mode = "monitor";
-  $('.pick').removeClass('picked');
-  $('#pickMonitor').addClass('picked');
-  $('#ghostChat').show();
-});
+// $('body').keydown(function(e) {
+//   if (mode != 'ghosts') {
+//     var msg = "MOVE:" + e.which;
+//     ws.send(msg);
+//   }
+// });
+// 
+// $('#pickGhosts').click(function(e) { 
+//   mode = "ghosts";
+//   $('.pick').removeClass('picked');
+//   $('#pickGhosts').addClass('picked');
+//   $('#ghostChat').show();
+// });
+// 
+// $('#pickPacman').click(function(e) {
+//   mode = "pacman";
+//   $('.pick').removeClass('picked');
+//   $('#pickPacman').addClass('picked');
+//   $('#ghostChat').hide();
+// });
+// 
+// $('#pickMonitor').click(function(e) {
+//   mode = "monitor";
+//   $('.pick').removeClass('picked');
+//   $('#pickMonitor').addClass('picked');
+//   $('#ghostChat').show();
+// });
 
 $('#play').click(function(e) {
   ws.send("PLAY:")
+  $('#board').show();
+  $('#ghostChat').show();
+  $('#ghostChat').focus();
 })
 
 $('#ghostChat').keydown(function(e) {

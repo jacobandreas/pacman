@@ -78,18 +78,18 @@ class PacmanServerFactory(WebSocketServerFactory):
         self.traces[client].append((self.displays[client].gameStep, msg))
 
     LAYOUTS = [
-               #("smallClassic", 2),
-               #("mediumClassic", 2),
-               #("mediumSurvival", 2)
-               #("mediumScaryMaze", 2)
-               #("openClassic", 1)
-               #("openHunt", 2)
-               #("smallGrid", 1)
-               #("mediumGrid", 1)
-               #("smallHunt", 2)
-               #("trapped2", 1)
-               #("trickyClassic", 2)
-               #("mediumCorners", 2)
+               ("smallClassic", 2),
+               ("mediumClassic", 2),
+               ("mediumSurvival", 2),
+               ("mediumScaryMaze", 2),
+               ("openClassic", 1),
+               ("openHunt", 2),
+               ("smallGrid", 1),
+               ("mediumGrid", 1),
+               ("smallHunt", 2),
+               ("trapped2", 1),
+               ("trickyClassic", 2),
+               ("mediumCorners", 2)
               ]
 
     GHOSTS = [ghostAgents.DirectionalGhost(1),
