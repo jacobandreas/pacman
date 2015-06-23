@@ -10,7 +10,7 @@ import ghostAgents
 import textDisplay
 import layout
 
-from twisted.internet import reactor
+from twisted.internet import reactor, ssl
 from twisted.python import log
 from twisted.web.server import Site
 from twisted.web.static import File
@@ -44,13 +44,23 @@ class PacmanServerFactory(WebSocketServerFactory):
         self.games = dict()
         self.displays = dict()
 
+	self.assignmentIds = dict()
+ 	self.hitIds = dict()
+
     def tick(self, client):
         if client not in self.clients:
             return
-        if (self.games[client].gameOver):
-            client.sendMessage("END:" + ("win" if self.games[client].state.isWin() else "lose"))
+        if (self.games[client].gameOver or self.displays[client].gameStep == 120):
+            if (self.displays[client].gameStep == 120):
+              msg = "draw"
+            elif self.games[client].state.isWin():
+              msg = "win"
+            else:
+              msg = "lose"
+            client.sendMessage("END:" + msg)
+	    del self.traces[client]
             return
-        reactor.callLater(0.2, lambda: self.tick(client))
+        reactor.callLater(0.6, lambda: self.tick(client))
         self.games[client].net_tick()
 
     def register(self, client):
@@ -62,10 +72,10 @@ class PacmanServerFactory(WebSocketServerFactory):
             self.clients.remove(client)
 
     def receive(self, msg, client):
-        msgType, msgBody = msg.split(":")
+        msgType, msgBody = msg.split(":", 1)
 
         if msgType == "PLAY":
-            self.spawnGame(client)
+            self.spawnGame(client, msgBody)
 
         elif msgType == "CHAT":
             #self.broadcastChat(msgBody)
@@ -82,14 +92,14 @@ class PacmanServerFactory(WebSocketServerFactory):
                ("mediumClassic", 2),
                ("mediumSurvival", 2),
                ("mediumScaryMaze", 2),
-               ("openClassic", 1),
-               ("openHunt", 2),
-               ("smallGrid", 1),
-               ("mediumGrid", 1),
-               ("smallHunt", 2),
-               ("trapped2", 1),
-               ("trickyClassic", 2),
-               ("mediumCorners", 2)
+               #("openClassic", 1),
+               ##("openHunt", 2),
+               #("smallGrid", 1),
+               #("mediumGrid", 1),
+               #("smallHunt", 2),
+               #("trapped2", 1)
+               #("trickyClassic", 2),
+               #("mediumCorners", 2)
               ]
 
     GHOSTS = [ghostAgents.DirectionalGhost(1),
@@ -99,7 +109,16 @@ class PacmanServerFactory(WebSocketServerFactory):
               ghostAgents.DirectionalGhost(5),
               ghostAgents.RandomGhost(6)]
 
-    def spawnGame(self, client):
+    def spawnGame(self, client, clientUrl):
+	try:
+		args = clientUrl.split("?")[1].split("&")
+		clientKeys = dict([a.split("=") for a in args])
+		self.assignmentIds[client] = clientKeys['assignmentId']
+		self.hitIds[client] = clientKeys['hitId']
+	except Exception as e:
+		print e
+		return
+
         TIMEOUT = 30
         layoutName, nGhosts = self.LAYOUTS[random.randint(0, len(self.LAYOUTS) - 1)]
         lyt = layout.getLayout(layoutName)
@@ -108,8 +127,8 @@ class PacmanServerFactory(WebSocketServerFactory):
         #ghosts = [ghostAgents.RandomGhost(1), ghostAgents.DirectionalGhost(2)]
         ghosts = self.GHOSTS[:nGhosts]
         rules = ClassicGameRules(TIMEOUT)
-        display = NetworkDisplay(client)
-        game = rules.newGame(lyt, pacman, ghosts, display)
+        display = NetworkDisplay(client, layoutName)
+        game = rules.newGame(lyt, pacman, ghosts, display, quiet=True)
 
         self.games[client] = game
         self.traces[client] = []
@@ -120,8 +139,9 @@ class PacmanServerFactory(WebSocketServerFactory):
 
 
 class NetworkDisplay:
-    def __init__(self, client):
+    def __init__(self, client, layoutName):
         self.client = client
+	self.layoutName = layoutName
 
     def initialize(self, state):
         self.gameStep = 0
@@ -144,6 +164,7 @@ class NetworkDisplay:
         food = state.food
         walls = state.layout.walls
         boardStr = ""
+        boardStr += str(layout.height) + "\n";
         for y in range(layout.height-1, -1, -1):
             for x in range(layout.width):
                 if walls[x][y]:
@@ -165,19 +186,22 @@ class NetworkDisplay:
                 agentStr = "S"
             boardStr += "%s %d %d\n" % (agentStr, x, layout.height - y - 1)
 
-        return boardStr[:-1]
+	boardStr += self.layoutName
+        return boardStr
 
 
 if __name__ == '__main__':
     DEBUG = True
     ServerFactory = PacmanServerFactory
-    factory = ServerFactory("ws://jacobandreas.net:9000",
+    factory = ServerFactory("wss://jacobandreas.net:9000",
                             debug=DEBUG,
                             debugCodePaths=DEBUG)
 
+    contextFactory = ssl.DefaultOpenSSLContextFactory('/home/ec2-user/pacman/keys/ssl.unenc.key',
+                                                      '/home/ec2-user/pacman/keys/ssl.crt')
     factory.protocol = PacmanServerProtocol
     factory.setProtocolOptions(allowHixie76 = True)
-    listenWS(factory)
+    listenWS(factory, contextFactory)
 
     webdir = File(".")
     web = Site(webdir)
